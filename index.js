@@ -92,53 +92,49 @@ app.post("/batalhas", async (req, res) => {
   const { heroi1, heroi2 } = req.body;
 
   try {
-    const heroi11 = await pool.query("SELECT * FROM herois WHERE id = $1", [heroi1]);
-    const heroi22 = await pool.query("SELECT * FROM herois WHERE id = $1", [heroi2]);
+    const heroi11 = await pool.query("SELECT * FROM herois WHERE id = $1", [
+      heroi1,
+    ]);
+    const heroi22 = await pool.query("SELECT * FROM herois WHERE id = $1", [
+      heroi2,
+    ]);
 
-    // Verifica se os heróis existem
-    if (heroi11.rowCount === 0 || heroi22.rowCount === 0) {
-      return res.status(404).json({ error: "Um ou ambos os heróis não encontrados." });
-    }
+    const heroi1Nivel = heroi11.rows[0].nivel;
+    const heroi2Nivel= heroi22.rows[0].nivel;
 
-    const heroi1Hp = heroi11.rows[0].hp;
-    const heroi2Hp = heroi22.rows[0].hp;
+    let heroi1Hp = heroi11.rows[0].hp;
+    let heroi2Hp = heroi22.rows[0].hp;
 
     let ganhador_id = null;
+    
 
-    // Loop até que um herói perca todos os seus pontos de vida (HP)
-    while (heroi1Hp > 0 && heroi2Hp > 0) {
-      // Atualiza o HP dos heróis após cada rodada de ataque
-      heroi2Hp -= heroi1Hp; // Ataque do herói1 contra o herói2
-      heroi1Hp -= heroi2Hp; // Ataque do herói2 contra o herói1
+    while (heroi1Nivel > 0 && heroi2Nivel > 0) {
+      heroi2Nivel -= heroi1Hp;
+      heroi1Nivel -= heroi2Hp;
     }
 
-    // Determina o vencedor com base no HP restante
-    if (heroi1Hp <= 0 && heroi2Hp > 0) {
+    if (heroi1Nivel == heroi2Nivel) {
+      ganhador_id = null;
+      res.json("Empate");
+    } else if (heroi1Nivel < heroi2Nivel) {
       ganhador_id = heroi22.rows[0].id;
-      res.json({ vencedor: `${heroi22.rows[0].nome} venceu`, hp: heroi22.rows[0].hp });
-    } else if (heroi2Hp <= 0 && heroi1Hp > 0) {
-      ganhador_id = heroi11.rows[0].id;
-      res.json({ vencedor: `${heroi11.rows[0].nome} venceu`, hp: heroi11.rows[0].hp });
+      res.json(`${heroi22.rows[0].nome} venceu`,);
     } else {
-      // Empate
-      res.json({ resultado: "Empate" });
+      ganhador_id = heroi11.rows[0].id;
+      res.json(`${heroi11.rows[0].nome} venceu`);
     }
 
-    // Insere o resultado da batalha no banco de dados
     await pool.query(
       "INSERT INTO batalhas (heroi1_id, heroi2_id, ganhador_id) VALUES ($1, $2, $3)",
       [heroi1, heroi2, ganhador_id]
     );
   } catch (error) {
-    console.error("Erro ao processar a batalha:", error);
-    res.status(500).json({ error: "Erro interno do servidor" });
+    console.error("Erro ao criar batalha", error);
+    res.status(500).json({ error: error.message });
   }
 });
-
 
 
 app.listen(port, () => {
   console.log(`Servidor rodando na porta ${port}`);
 });
-
-
